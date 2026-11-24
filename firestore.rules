@@ -1,0 +1,211 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function isAdmin() { return signedIn() && request.auth.token.admin == true; }
+    function isModerator() { return signedIn() && (request.auth.token.admin == true || request.auth.token.operator == true); }
+    function validSignupRole(role) { return role in ['BUYER', 'SUPPLIER']; }
+    function businessPath(id) { return /databases/$(database)/documents/businesses/$(id); }
+    function membershipPath(id) { return /databases/$(database)/documents/businessMemberships/$(id); }
+    function hasBusinessAccess(businessId) {
+      return signedIn()
+        && exists(businessPath(businessId))
+        && uid() in get(businessPath(businessId)).data.memberUids;
+    }
+    function verifiedSupplier(businessId) {
+      return signedIn()
+        && exists(businessPath(businessId))
+        && uid() in get(businessPath(businessId)).data.memberUids
+        && get(businessPath(businessId)).data.type in ['SUPPLIER', 'MIXED']
+        && get(businessPath(businessId)).data.verificationStatus == 'VERIFIED'
+        && exists(/databases/$(database)/documents/users/$(uid()))
+        && get(/databases/$(database)/documents/users/$(uid())).data.status == 'ACTIVE';
+    }
+    function validProduct(data) {
+      return data.keys().hasAll([
+          'id', 'supplierBusinessId', 'createdByUid', 'name', 'categoryId',
+          'images', 'baseUnit', 'availabilityStatus', 'reviewStatus',
+          'location', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'supplierBusinessId', 'createdByUid', 'name', 'categoryId',
+          'description', 'images', 'baseUnit', 'grade', 'indicativeStock',
+          'indicativePricePerUnit', 'availabilityStatus', 'reviewStatus',
+          'reviewNote', 'location', 'createdAt', 'updatedAt'
+        ])
+        && data.id is string && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+        && data.categoryId is string && data.baseUnit is string
+        && data.images is list && data.images.size() >= 1 && data.images.size() <= 4
+        && data.availabilityStatus in ['AVAILABLE', 'LIMITED', 'UNAVAILABLE']
+        && data.reviewStatus in ['PENDING_REVIEW', 'APPROVED', 'REJECTED']
+        && data.location is map && data.location.keys().hasOnly(['city', 'district'])
+        && data.location.city is string && data.location.city.size() >= 2
+        && (!('indicativeStock' in data) || (data.indicativeStock is number && data.indicativeStock >= 0))
+        && (!('indicativePricePerUnit' in data) || (data.indicativePricePerUnit is number && data.indicativePricePerUnit >= 0));
+    }
+    function validFarm(data, farmId, ownerUid) {
+      return data.keys().hasAll([
+          'id', 'name', 'location', 'areaHectares', 'crops', 'ownerUid', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'location', 'latitude', 'longitude', 'boundary',
+          'areaHectares', 'crops', 'ownerUid', 'createdAt', 'updatedAt'
+        ])
+        && data.id == farmId
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+        && data.location is string && data.location.size() >= 2 && data.location.size() <= 180
+        && data.areaHectares is number && data.areaHectares > 0 && data.areaHectares <= 100000
+        && data.crops is list && data.crops.size() >= 1 && data.crops.size() <= 12
+        && data.ownerUid == ownerUid
+        && (!('latitude' in data) || (data.latitude is number && data.latitude >= -90 && data.latitude <= 90))
+        && (!('longitude' in data) || (data.longitude is number && data.longitude >= -180 && data.longitude <= 180))
+        && (!('boundary' in data) || (data.boundary is list && data.boundary.size() >= 3 && data.boundary.size() <= 200));
+    }
+
+    match /users/{userId} {
+      allow read: if isAdmin() || (signedIn() && userId == uid());
+      allow create: if signedIn() && userId == uid()
+        && request.resource.data.keys().hasOnly([
+          'uid', 'displayName', 'phoneNumber', 'email', 'photoURL',
+          'status', 'businessIds', 'preferredRole', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'uid', 'displayName', 'phoneNumber', 'email', 'photoURL',
+          'status', 'businessIds', 'preferredRole', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.uid == uid()
+        && request.resource.data.status == 'PENDING_VERIFICATION'
+        && validSignupRole(request.resource.data.preferredRole)
+        && request.resource.data.businessIds is list
+        && request.resource.data.businessIds.size() == 1
+        && existsAfter(businessPath(request.resource.data.businessIds[0]))
+        && getAfter(businessPath(request.resource.data.businessIds[0])).data.ownerUid == uid()
+        && existsAfter(membershipPath(uid() + '_' + request.resource.data.businessIds[0]))
+        && getAfter(membershipPath(uid() + '_' + request.resource.data.businessIds[0])).data.role == request.resource.data.preferredRole;
+      allow update: if (signedIn() && userId == uid()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.businessIds == resource.data.businessIds
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.preferredRole == resource.data.preferredRole
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'phoneNumber', 'email', 'photoURL', 'updatedAt'
+        ])) || (isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+          && request.resource.data.status in ['ACTIVE', 'PENDING_VERIFICATION', 'SUSPENDED']);
+      allow delete: if false;
+    }
+
+    match /users/{userId}/farms/{farmId} {
+      allow read: if signedIn() && userId == uid();
+      allow create: if signedIn() && userId == uid()
+        && request.resource.data.ownerUid == uid()
+        && validFarm(request.resource.data, farmId, uid());
+      allow update: if signedIn() && userId == uid()
+        && resource.data.ownerUid == uid()
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validFarm(request.resource.data, farmId, uid())
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'location', 'latitude', 'longitude', 'boundary', 'areaHectares', 'crops', 'updatedAt'
+        ]);
+      allow delete: if signedIn() && userId == uid() && resource.data.ownerUid == uid();
+    }
+
+    match /businesses/{businessId} {
+      allow read: if isAdmin() || hasBusinessAccess(businessId);
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'id', 'name', 'type', 'ownerUid', 'memberUids', 'phone', 'address',
+          'verificationStatus', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.id == businessId
+        && request.resource.data.ownerUid == uid()
+        && request.resource.data.memberUids == [uid()]
+        && validSignupRole(request.resource.data.type)
+        && request.resource.data.verificationStatus == 'PENDING'
+        && existsAfter(membershipPath(uid() + '_' + businessId))
+        && getAfter(membershipPath(uid() + '_' + businessId)).data.businessId == businessId
+        && getAfter(membershipPath(uid() + '_' + businessId)).data.role == request.resource.data.type;
+      allow update: if (hasBusinessAccess(businessId)
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.memberUids == resource.data.memberUids
+        && request.resource.data.verificationStatus == resource.data.verificationStatus
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'phone', 'address', 'updatedAt'
+        ])) || (isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['verificationStatus', 'updatedAt'])
+          && request.resource.data.verificationStatus in ['VERIFIED', 'REJECTED']);
+      allow delete: if false;
+    }
+
+    match /businessMemberships/{membershipId} {
+      allow read: if signedIn() && resource.data.userId == uid();
+      allow create: if signedIn()
+        && membershipId == uid() + '_' + request.resource.data.businessId
+        && request.resource.data.keys().hasOnly(['userId', 'businessId', 'role', 'status', 'createdAt'])
+        && request.resource.data.userId == uid()
+        && validSignupRole(request.resource.data.role)
+        && request.resource.data.status == 'ACTIVE'
+        && existsAfter(businessPath(request.resource.data.businessId))
+        && getAfter(businessPath(request.resource.data.businessId)).data.ownerUid == uid()
+        && getAfter(businessPath(request.resource.data.businessId)).data.verificationStatus == 'PENDING';
+      allow update, delete: if false;
+    }
+
+    match /categories/{categoryId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /units/{unitId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /products/{productId} {
+      allow read: if isModerator()
+        || resource.data.reviewStatus == 'APPROVED'
+        || (signedIn() && resource.data.createdByUid == uid()
+          && verifiedSupplier(resource.data.supplierBusinessId));
+      allow create: if verifiedSupplier(request.resource.data.supplierBusinessId)
+        && request.resource.data.id == productId
+        && request.resource.data.createdByUid == uid()
+        && request.resource.data.reviewStatus == 'PENDING_REVIEW'
+        && !('reviewNote' in request.resource.data)
+        && validProduct(request.resource.data)
+        && exists(/databases/$(database)/documents/categories/$(request.resource.data.categoryId))
+        && get(/databases/$(database)/documents/categories/$(request.resource.data.categoryId)).data.active == true
+        && exists(/databases/$(database)/documents/units/$(request.resource.data.baseUnit))
+        && get(/databases/$(database)/documents/units/$(request.resource.data.baseUnit)).data.active == true;
+      allow update: if isModerator()
+          && resource.data.reviewStatus == 'PENDING_REVIEW'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reviewStatus', 'reviewNote', 'updatedAt'])
+          && request.resource.data.reviewStatus in ['APPROVED', 'REJECTED']
+          && (!('reviewNote' in request.resource.data) || request.resource.data.reviewNote == null || request.resource.data.reviewNote is string)
+        || (signedIn()
+          && resource.data.createdByUid == uid()
+          && verifiedSupplier(resource.data.supplierBusinessId)
+          && request.resource.data.supplierBusinessId == resource.data.supplierBusinessId
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.reviewStatus == 'PENDING_REVIEW'
+          && !('reviewNote' in request.resource.data)
+          && validProduct(request.resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name', 'categoryId', 'description', 'images', 'baseUnit', 'grade',
+            'indicativeStock', 'indicativePricePerUnit', 'availabilityStatus',
+            'reviewStatus', 'reviewNote', 'location', 'updatedAt'
+          ]));
+      allow delete: if signedIn() && resource.data.createdByUid == uid()
+        && resource.data.reviewStatus != 'APPROVED'
+        && verifiedSupplier(resource.data.supplierBusinessId);
+    }
+
+    // Koleksi fitur selanjutnya tetap ditolak secara default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

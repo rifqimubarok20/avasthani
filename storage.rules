@@ -1,0 +1,74 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function isModerator() {
+      return signedIn()
+        && (request.auth.token.admin == true || request.auth.token.operator == true);
+    }
+    function businessPath(businessId) {
+      return /databases/(default)/documents/businesses/$(businessId);
+    }
+    function userPath(uid) {
+      return /databases/(default)/documents/users/$(uid);
+    }
+    function verifiedSupplier(businessId) {
+      let business = firestore.get(businessPath(businessId)).data;
+      let profile = firestore.get(userPath(request.auth.uid)).data;
+      return signedIn()
+        && request.auth.uid in business.memberUids
+        && business.type in ['SUPPLIER', 'MIXED']
+        && business.verificationStatus == 'VERIFIED'
+        && profile.status == 'ACTIVE';
+    }
+    function productPath(productId) {
+      return /databases/(default)/documents/products/$(productId);
+    }
+    function isUploaderCover(fileName) {
+      return fileName == request.auth.uid + '_cover.jpg'
+        || fileName == request.auth.uid + '_cover.png'
+        || fileName == request.auth.uid + '_cover.webp';
+    }
+    function canReadProductImage(businessId, productId, fileName) {
+      return signedIn() && (
+        isModerator()
+        || (verifiedSupplier(businessId)
+          && isUploaderCover(fileName))
+        || (firestore.exists(productPath(productId))
+          && firestore.get(productPath(productId)).data.supplierBusinessId == businessId
+          && (firestore.get(productPath(productId)).data.reviewStatus == 'APPROVED'
+            || firestore.get(productPath(productId)).data.createdByUid == request.auth.uid))
+      );
+    }
+
+    match /product-images/{businessId}/{productId}/{fileName} {
+      allow read: if canReadProductImage(businessId, productId, fileName);
+      allow create: if verifiedSupplier(businessId)
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)')
+        && isUploaderCover(fileName)
+        && fileName.matches('[A-Za-z0-9._-]+');
+      allow update, delete: if isModerator()
+        || (verifiedSupplier(businessId)
+          && resource != null
+          && firestore.get(
+            /databases/(default)/documents/products/$(productId)
+          ).data.createdByUid == request.auth.uid
+          && firestore.get(
+            /databases/(default)/documents/products/$(productId)
+          ).data.reviewStatus != 'APPROVED');
+    }
+
+    match /avatars/{userId}/{fileName} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && request.auth.uid == userId
+        && request.resource.size <= 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

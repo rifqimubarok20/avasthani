@@ -1,0 +1,15 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.avasthani.farmplaces'
+version = '1.0.0'
+
+android {
+  namespace 'expo.modules.farmplaces'
+}
+
+dependencies {
+  implementation 'com.google.android.libraries.places:places:6.0.2'
+}

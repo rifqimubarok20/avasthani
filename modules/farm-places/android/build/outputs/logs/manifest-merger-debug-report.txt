@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Users/rifqifauzimibarok/Documents/avastha/avastha-ni/avasthani-app/modules/farm-places/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14534267161980248542.xml:2:13-83
+INJECTED from /Users/rifqifauzimibarok/Documents/avastha/avastha-ni/avasthani-app/modules/farm-places/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14534267161980248542.xml:2:13-83
+	package
+		INJECTED from /Users/rifqifauzimibarok/Documents/avastha/avastha-ni/avasthani-app/modules/farm-places/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14534267161980248542.xml
+	xmlns:android
+		ADDED from /Users/rifqifauzimibarok/Documents/avastha/avastha-ni/avasthani-app/modules/farm-places/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14534267161980248542.xml:2:23-81
+uses-sdk
+INJECTED from /Users/rifqifauzimibarok/Documents/avastha/avastha-ni/avasthani-app/modules/farm-places/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14534267161980248542.xml reason: use-sdk injection requested
+INJECTED from /Users/rifqifauzimibarok/Documents/avastha/avastha-ni/avasthani-app/modules/farm-places/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14534267161980248542.xml
+INJECTED from /Users/rifqifauzimibarok/Documents/avastha/avastha-ni/avasthani-app/modules/farm-places/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14534267161980248542.xml
+	android:targetSdkVersion
+		INJECTED from /Users/rifqifauzimibarok/Documents/avastha/avastha-ni/avasthani-app/modules/farm-places/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14534267161980248542.xml
+	android:minSdkVersion
+		INJECTED from /Users/rifqifauzimibarok/Documents/avastha/avastha-ni/avasthani-app/modules/farm-places/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest14534267161980248542.xml

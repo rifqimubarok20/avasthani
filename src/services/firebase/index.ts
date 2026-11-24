@@ -1,0 +1,9 @@
+export { getFirebaseApp } from './app';
+export { getFirebaseAuth } from './auth';
+export { getFirebaseFirestore } from './firestore';
+export { getFirebaseStorage } from './storage';
+export { getCallableFunction } from './functions';
+export { getFirebaseMessaging } from './messaging';
+export { initializeFirebaseAppCheck } from './appcheck';
+export { getFirebaseAnalytics } from './analytics';
+export { getFirebaseCrashlytics } from './crashlytics';

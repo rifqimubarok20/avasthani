@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "147742837821",
+    "project_id": "avasthani",
+    "storage_bucket": "avasthani.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:147742837821:android:0b8e1cce8d2029e718ae54",
+        "android_client_info": {
+          "package_name": "com.avasthani.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "147742837821-iruv7h2dtqim16lgqvhd1fl6trsqpur2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.avasthani.app",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "147742837821-dlfldptf5cpljlra0qh58ktganuogper.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGRNRc2ZA4d7CvRZF_ejFo_RHTJa3LOUk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "147742837821-dlfldptf5cpljlra0qh58ktganuogper.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
